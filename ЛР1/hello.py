@@ -2,155 +2,162 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 
-FUNCTION = [True, True, True, True, True, False, False, False, True, True, True, True, True, True, True, True]
-SELECTED = [
-    [1, 0, 0, 0, 1],
-    [1, 0, 1, 1, 1],
-    [1, 1, 0, 1, 0],
-    [1, 1, 0, 1, 1],
-    [1, 1, 1, 1, 0]
-]
-SELECTED_FUNC = [True, True, False, True, True]
 
-def function_one(net):
-    return 1 if net >= 0 else 0
+class NeuralNetwork:
+    def __init__(self, type, n, func):
+        self.__type = type
+        self.__n = n
+        self.__net = 0
+        self.__weights = [0, 0, 0, 0, 0]
+        self.__func = func
+        self.__errors = []
 
-def function_two_dxdy(net):
-    return 1 / (np.cosh(2 * net) + 1)
+    def function_one(self):
+        return 1 if self.__net >= 0 else 0
 
-def function_two(net):
-    return 0.5 * (np.tanh(net) + 1)
+    def function_two(self):
+        return 0.5 * (np.tanh(self.__net) + 1)
 
+    def function_two_dxdy(self):
+        return 1 / (np.cosh(2 * self.__net) + 1)
 
-def net_calculator(weights, x):
-    return weights[0] + weights[1] * x[1] + weights[2] * x[2] + weights[3] * x[3] + weights[4] * x[4]
+    def net_calculator(self, x):
+        self.__net =  self.__weights[0] + self.__weights[1] * x[1] + self.__weights[2] * x[2] + self.__weights[3] * x[3] + self.__weights[4] * x[4]
 
-def weights_correction(weights, sigma, n, x, dfdnet):
-    new_weights = []
-    for i in range(5):
-        new_weights.append(weights[i] + n * sigma * dfdnet * x[i])
-    return  new_weights
+    def weights_correction(self, sigma, x, dfdnet):
+        for i in range(5):
+            self.__weights[i] = self.__weights[i] + self.__n * sigma * dfdnet * x[i]
 
-def predict_y(weights, type):
-    predicted_y = []
-    for i in range(16):
-        x = [1, math.floor(i // 8) % 2, math.floor(i // 4) % 2, math.floor(i // 2) % 2, math.floor(i // 1) % 2]
-        if type == 1:
-            predicted_y.append(True if function_one(net_calculator(weights, x)) == 1 else False)
-        elif type == 2:
-            predicted_y.append(True if function_two(net_calculator(weights, x)) >= 0.5 else False)
-    return predicted_y
+    def study(self):
+        print("EPOCH".rjust(5), "FUNCTION".rjust(18), "WEIGHTS".rjust(39), "E".rjust(3))
+        print("_" * 5, " ", "_" * 16, "_" * 39, " __")
+        epoch = 0
+        while True:
+            error = 0
+            predicted_y = False
+            y = ""
+            for i in range(16):
+                x = [1, math.floor(i // 8) % 2, math.floor(i // 4) % 2, math.floor(i // 2) % 2, math.floor(i // 1) % 2]
+                if self.__type == 1:
+                    self.net_calculator(x)
+                    predicted_y = True if self.function_one() == 1 else False
+                elif self.__type == 2:
+                    self.net_calculator(x)
+                    predicted_y = True if self.function_two() >= 0.5 else False
+                if predicted_y is not self.__func[i]:
+                    error += 1
+                y += str(int(predicted_y))
+                dfdnet = 1
+                tn = int(self.__func[i])
+                yn = int(predicted_y)
+                sigm = tn - yn
+                self.net_calculator(x)
+                if self.__type == 2:
+                    dfdnet = self.function_two_dxdy()
+                self.weights_correction(sigm, x, dfdnet)
+            w_string = ', '.join([str("%.3f" % it) if it < 0 else str("%.4f" % it) for it in self.__weights])
+            self.__errors.append([epoch, error])
+            print(str(epoch).rjust(5), str(y).rjust(18), str(w_string).rjust(39), str(error).rjust(3))
+            if error == 0:
+                break
+            epoch += 1
 
-def exception_counter(predicted_y):
-    ex = 0
-    for i in range(16):
-        if predicted_y[i] is not FUNCTION[i]:
-            ex += 1
-    return ex
+    def study_selected(self):
+        SELECTED = [
+            [1, 0, 0, 1, 1],
+            [1, 0, 1, 0, 0],
+            [1, 0, 1, 0, 1],
+            [1, 0, 1, 1, 1],
+            [1, 0, 1, 1, 0],
+            [1, 1, 0, 0, 0],
+            [1, 1, 0, 1, 0],
+            [1, 1, 1, 0, 1],
+        ]
+        SELECTED_FUNC = [ True,True, False, False, False, True, True, True]
+        print("EPOCH".rjust(5), "FUNCTION".rjust(18), "WEIGHTS".rjust(39), "E".rjust(3))
+        print("_" * 5, " ", "_" * 16, "_" * 39, " __")
+        epoch = 0
+        while True:
+            error = 0
+            predicted_y = False
+            y = ""
+            for i in range(len(SELECTED)):
+                if self.__type == 1:
+                    self.net_calculator(SELECTED[i])
+                    predicted_y = True if self.function_one() == 1 else False
+                elif self.__type == 2:
+                    self.net_calculator(SELECTED[i])
+                    predicted_y = True if self.function_two() >= 0.5 else False
+                if predicted_y is not SELECTED_FUNC[i]:
+                    error += 1
+                y += str(int(predicted_y))
+                dfdnet = 1
+                tn = int(SELECTED_FUNC[i])
+                yn = int(predicted_y)
+                sigm = tn - yn
+                self.net_calculator(SELECTED[i])
+                if self.__type == 2:
+                    dfdnet = self.function_two_dxdy()
+                self.weights_correction(sigm, SELECTED[i], dfdnet)
+            w_string = ', '.join([str("%.3f" % it) if it < 0 else str("%.4f" % it) for it in self.__weights])
+            self.__errors.append([epoch, error])
+            print(str(epoch).rjust(5), str(y).rjust(18), str(w_string).rjust(39), str(error).rjust(3))
+            if error == 0:
+                break
+            epoch += 1
 
-def exception_counter_selected(predicted_y):
-    ex = 0
-    for i in range(5):
-        if predicted_y[i] is not SELECTED_FUNC[i]:
-            ex += 1
-    return ex
-
-def study1(type, nt):
-    print("EPOCH".rjust(5), "FUNCTION".rjust(18), "WEIGHTS".rjust(39), "E".rjust(3))
-    print("_" * 5, " ", "_" * 16, "_" * 39, " __")
-    weights = [0, 0, 0, 0, 0]
-    errors = []
-    epoch = 0
-    n = nt
-    while True:
-        y = predict_y(weights, type)
-        ex = exception_counter(y)
-        errors.append([epoch, ex])
-        y_string = ''.join(['1' if it else '0' for it in y])
-        w_string = ', '.join([str("%.3f" % it) if it < 0 else str("%.4f" % it) for it in weights])
-
-        print(str(epoch).rjust(5), str(y_string).rjust(18), str(w_string).rjust(39), str(ex).rjust(3))
-        if ex == 0:
-            break
-
+        predicted = []
         for i in range(16):
             x = [1, math.floor(i // 8) % 2, math.floor(i // 4) % 2, math.floor(i // 2) % 2, math.floor(i // 1) % 2]
-            dfdnet = 1
+            if self.__type == 1:
+                self.net_calculator(x)
+                predicted.append(True if self.function_one() == 1 else False)
+            elif self.__type == 2:
+                self.net_calculator(x)
+                predicted.append(True if self.function_two() >= 0.5 else False)
+        y_string = ''.join(['1' if it else '0' for it in predicted])
+        print(y_string)
 
-            tn = int(FUNCTION[i])
-            yn = int(y[i])
-            sigm = tn - yn
-            net = net_calculator(weights, x)
-            if type == 2:
-                dfdnet = function_two_dxdy(net)
+    def printgraph(self):
+        err = np.array(self.__errors)
+        x, y = err.T
+        plt.ylabel('E')
+        plt.xlabel('epoch')
+        plt.scatter(x, y)
+        plt.plot(x, y)
+        plt.show()
 
-            weights = weights_correction(weights, sigm, n, x, dfdnet)
-
-        epoch += 1
-    return errors
-
-def study2(type, nt):
-    print("EPOCH".rjust(5), "FUNCTION".rjust(18), "WEIGHTS".rjust(39), "E".rjust(3))
-    print("_" * 5, " ", "_" * 16, "_" * 39, " __")
-    weights = [0, 0, 0, 0, 0]
-    errors = []
-    epoch = 0
-    n = nt
-    while True:
-        y = predict_y(weights, type)
-        ex = exception_counter_selected(y)
-        errors.append([epoch, ex])
-        y_string = ''.join(['1' if it else '0' for it in y])
-        w_string = ', '.join([str("%.3f" % it) if it < 0 else str("%.4f" % it) for it in weights])
-
-        print(str(epoch).rjust(5), str(y_string).rjust(18), str(w_string).rjust(39), str(ex).rjust(3))
-        if ex == 0:
-            break
-
-        for i in range(5):
-            x = SELECTED[i]
-            dfdnet = 1
-
-            tn = int(SELECTED_FUNC[i])
-            yn = int(y[i])
-            sigm = tn - yn
-            net = net_calculator(weights, x)
-            if type == 2:
-                dfdnet = function_two_dxdy(net)
-
-            weights = weights_correction(weights, sigm, n, x, dfdnet)
-
-        epoch += 1
-    return errors
-
-def printgraph(err):
-    x, y = err.T
-    plt.ylabel('E')
-    plt.xlabel('epoch')
-    plt.scatter(x, y)
-    plt.plot(x, y)
-    plt.show()
+    def reset(self, type, n, func):
+        self.__type = type
+        self.__n = n
+        self.__net = 0
+        self.__weights = [0, 0, 0, 0, 0]
+        self.__func = func
+        self.__errors = []
 
 def main():
+    FUNCTION = [True, True, True, True, True, False, False, False, True, True, True, True, True, True, True, True]
+    nw = NeuralNetwork(1, 0.3, FUNCTION)
     print('-' * 30, 'FA 1st type', '-' * 30)
     print()
-    err1 = np.array(study1(1, 0.8))
+    nw.study()
+    nw.printgraph()
     print()
     print()
     print('-' * 30, 'FA 2nd type', '-' * 30)
     print()
-    err2 = np.array(study1(2, 0.3))
+    nw.reset(2, 0.3, FUNCTION)
+    nw.study()
+    nw.printgraph()
     print()
     print()
     print('-' * 30, 'FA 2nd type', '-' * 30)
     print()
-    err3 = np.array(study2(2, 0.3))
+    nw.reset(2, 0.3, FUNCTION)
+    nw.study_selected()
+    nw.printgraph()
     print()
     print()
-
-    printgraph(err1)
-    printgraph(err2)
-    printgraph(err3)
 
 
 if __name__ == '__main__':
