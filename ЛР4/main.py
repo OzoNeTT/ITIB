@@ -3,133 +3,105 @@ import math
 import itertools
 import matplotlib.pyplot as plt
 
-def step(net):
-    if net >= 0:
-        return 1
-    else:
-        return 0
+class RBFNeuron:
+    def __init__(self, n, x=None):
+        self._net = 0
+        self._J = 0
+        self._fi = None
+        self._u = None
+        self._n = n
+        self._c = None
+        self._functionY = None
+        self._functionX = x
 
-# Считаем net
-def net(fi, u):
-    return sum(fi[i] * u[i] for i in range(len(u)))
+    def func(self, x):
+        return int(x[0] or not x[1] or not (x[2] or x[3]))
 
-# Вычисляем значение fi
-def fi(x, c):
-    fi_y = [[np.array(x) - np.array(cc)] for cc in c]
-    return [1] + [math.exp(-np.sum(np.power(i, 2))) for i in fi_y]
+    def step(self):
+        return 1 if self._net >= 0 else 0
 
-# Алгоритм обучения
-def training_mode(num_of_vec):
-    # Запишем центры наших РБФ-нейронов
-    c = [[0, 0, 1, 1], [0, 1, 1, 1], [1, 0, 1, 1]]
-    u = np.zeros(len(c) + 1)
-    etta = 0.3
-    errors = np.ones(len(num_of_vec))
-    sumError = []
+    def net(self):
+        self._net = sum(self._fi[i] * self._u[i] for i in range(len(self._u)))
 
-    y = [0]*len(num_of_vec)
-    f = [0]*len(num_of_vec)
+    def j_count(self):
+        self._J = min(self._functionY.count(1), self._functionY.count(0))
+        c = []
+        for i in range(len(self._functionY)):
+            if self._functionY.count(1) < self._functionY.count(0):
+                if self._functionY[i] == 1:
+                    c.append(self._functionX[i])
+            else:
+                if self._functionY[i] == 0:
+                    c.append(self._functionX[i])
 
-    era = 0
-    out = ''
+        self._c = c.copy()
 
-    while np.sum(errors) != 0:
+    def initialize(self):
+        if self._functionX is None:
+            X = []
+            Y = []
+            for i in range(16):
+                x = [math.floor(i // 8) % 2, math.floor(i // 4) % 2, math.floor(i // 2) % 2, math.floor(i // 1) % 2]
+                X.append(x)
+                Y.append(self.func(x))
+            self._functionX = X.copy()
+            self._functionY = Y.copy()
+        else:
+            Y = []
+            for i in range(len(self._functionX)):
+                Y.append(self.func(self._functionX[i]))
 
-        for x in range(len(num_of_vec)):
-            fi_y = fi(num_of_vec[x], c)
-            net_y = net(fi_y, u)
-            y[x] = step(net_y)
-            f[x] = function_init(num_of_vec[x])
-            sigma = f[x] - y[x]
+    def fi(self, x, c):
+        fi_y = [[np.array(x) - np.array(cc)] for cc in c]
+        return [1] + [math.exp(-np.sum(np.power(i, 2))) for i in fi_y]
 
-            for i in range(len(u)):
-                u[i] += etta * sigma * fi_y[i]
+    def study(self):
+        self.initialize()
+        self.j_count()
+        self._u = np.zeros(len(self._c) + 1)
 
-        errors = sum((f[i] ^ y[i]) for i in range(len(num_of_vec)))
-        sumError.append(errors)
-        out += (f"%d y:{y}, Целевой вектор f:{f}, w:{u} Error = %.d \n" % (era, errors))
+        errors = np.ones(len(self._functionX))
+        sumError = []
 
-        era += 1
+        y = [0] * len(self._functionX)
+        f = [0] * len(self._functionX)
 
-        if era >= 1000:
-            return -1
+        era = 0
+        out = ''
 
-    # Проверяем: совпадает ли тестовая функция с целевой
-    if test_function(c, u) == initialize():
-        print(f"Выборка: {num_of_vec} Функция обучена правильно!\n {out}")
+        while np.sum(errors) != 0:
+
+            for x in range(len(self._functionX)):
+                self._fi = self.fi(self._functionX[x], self._c)
+                self.net()
+                y[x] = self.step()
+                f[x] = self._functionY[x]
+                sigma = f[x] - y[x]
+
+                for i in range(len(self._u)):
+                    self._u[i] += self._n * sigma * self._fi[i]
+
+            errors = sum((f[i] ^ y[i]) for i in range(len(self._functionX)))
+            sumError.append(errors)
+            out += (f"%d y:{y}, Целевой вектор f:{f}, w:{self._u} Error = %.d \n" % (era, errors))
+
+            era += 1
+
+            if era >= 1000:
+                return -1
+
+
+        print(f"Выборка: {self._functionX} Функция обучена правильно!\n {out}")
         plt.plot(sumError, 'ro-')
         plt.grid(True)
         plt.show()
         return era
-    else:
-        print(f"Ошибка при обучении!\n")
-        return -1
 
-# Записываем значения для тестовой функции
-def test_function(c, u):
-    X = ''
 
-    for x in [list(i) for i in itertools.product([0, 1], repeat=4)]:
-        fi_y = fi(x, c)
-        net_y = net(fi_y, u)
-        y = step(net_y)
-        X += str(y)
 
-    return X
+def main():
+    obj = RBFNeuron(0.3)
+    obj.study()
 
-# Записываем значения для таблицы истинности
-def initialize_full():
-    n = 4
-    X = []
-    i = 0
-    while i < 2**n:
-        x = list(format(i, f'0{n}b'))
-        x = [int(s) for s in x]
-        X.append(x)
-        i += 1
-
-    return X
-
-def initialize():
-    X = ''
-
-    for i in [list(i) for i in itertools.product([0, 1], repeat=4)]:
-        X += str(function_init(i))
-
-    return X
-
-# Строим нашу целевую функцию с помощью формул
-def function_init(x):
-    F = int(x[0] or not x[1] or not (x[2] or x[3]))
-    return F
-
-if __name__ == "__main__":
-    commands = 'Введите команду:' \
-    '\n     full        --- обучение нейронной сети и построение графика ошибок для всех векторов' \
-    '\n     min         --- обучение нейронной сети и построение графика ошибок для минимального количества векторов' \
-    '\n' \
-    '\n     exit        --- выход из программы'
-
-    print(commands)
-
-    true = 1
-    while true == 1:
-        command = input()
-
-        if command == 'full':
-            x = initialize_full()
-            training_mode(x)
-        elif command == 'min':
-            num_of_vec = [
-                [0, 0, 1, 1],
-                [0, 1, 0, 0],
-                [0, 1, 0, 1],
-                [0, 1, 1, 1],
-                [0, 1, 1, 0],
-                [1, 0, 0, 0],
-                [1, 0, 1, 0],
-                [1, 1, 0, 1],
-            ]
-            training_mode(num_of_vec)
-        elif command == 'exit':
-            true = 0
+if __name__ == '__main__':
+    main()
